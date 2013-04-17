@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"github.com/kballard/gocallback/callback"
 	"io"
 	"net"
@@ -216,7 +217,9 @@ func connWriter(nc net.Conn, c <-chan string, writeErr chan<- error, allowFlood 
 				<-time.After(delta - maxTimeDelta)
 			}
 		}
+		fmt.Println("<--", line)
 		if _, err := io.WriteString(nc, line+"\r\n"); err != nil {
+			fmt.Println("writeErr:", err)
 			writeErr <- err
 			break
 		}
@@ -264,9 +267,11 @@ func connReader(nc net.Conn, c chan<- string, readErr chan<- error) {
 	// read from the wire and write to the queue
 	scanner := bufio.NewScanner(nc) // defaults to SplitLines
 	for scanner.Scan() {
+		fmt.Println("-->", scanner.Text())
 		queue <- scanner.Text()
 	}
 	if scanner.Err() != nil {
+		fmt.Println("readErr:", scanner.Err())
 		readErr <- scanner.Err()
 	} else {
 		// dump EOF in there, since that's what the scanner got

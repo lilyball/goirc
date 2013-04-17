@@ -1,6 +1,7 @@
 package main
 
 import (
+	//"crypto/tls"
 	"fmt"
 	"github.com/kballard/goirc/irc"
 )
@@ -9,6 +10,12 @@ func main() {
 	quit := make(chan bool, 1)
 	config := irc.Config{
 		Host: "chat.freenode.net",
+		SSL:  true,
+		/*SSLConfig: &tls.Config{
+			CipherSuites: []uint16{
+				tls.TLS_RSA_WITH_RC4_128_SHA,
+			},
+		},*/
 
 		Nick:     "goirc",
 		User:     "goirc",
