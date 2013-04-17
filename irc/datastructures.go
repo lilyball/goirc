@@ -36,7 +36,7 @@ func (u User) String() string {
 }
 
 type Line struct {
-	Sender  User
+	Src     User
 	Command string
 	Args    []string
 	Raw     string
@@ -61,7 +61,7 @@ func parseLine(input string) (line Line) {
 		return
 	} else if words[0][0] == ':' {
 		// it has the expected sender prefix
-		line.Sender = parseUser(words[0][1:])
+		line.Src = parseUser(words[0][1:])
 		words = words[1:]
 	}
 	if len(words) == 0 {
@@ -77,7 +77,7 @@ func parseLine(input string) (line Line) {
 	return
 }
 
-// SenderIsMe returns if the Sender is the same as Me.
-func (l *Line) SenderIsMe() bool {
-	return l.Sender.Nick == l.me.Nick
+// SrcIsMe returns if the Src is the same as Me.
+func (l *Line) SrcIsMe() bool {
+	return l.Src.Nick == l.me.Nick
 }

@@ -39,7 +39,7 @@ func h_MODE(conn *Conn, line Line) {
 
 func h_NICK(conn *Conn, line Line) {
 	if len(line.Args) > 0 {
-		if line.SenderIsMe() {
+		if line.SrcIsMe() {
 			conn.me.Nick = line.Args[0]
 		}
 	}

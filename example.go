@@ -41,7 +41,7 @@ func h_LoggedIn(conn *irc.Conn, line irc.Line) {
 }
 
 func h_PRIVMSG(conn *irc.Conn, line irc.Line) {
-	fmt.Printf("[%s] %s> %s\n", line.Args[0], line.Sender, line.Args[1])
+	fmt.Printf("[%s] %s> %s\n", line.Args[0], line.Src, line.Args[1])
 	if line.Args[1] == "!quit" {
 		conn.Quit("")
 	}
