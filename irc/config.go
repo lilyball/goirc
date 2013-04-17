@@ -2,10 +2,12 @@ package irc
 
 import (
 	"bufio"
+	"crypto/tls"
 	"github.com/kballard/gocallback/callback"
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,8 +16,10 @@ import (
 type Config struct {
 	Host     string
 	Port     uint // if 0, 6667 is used, or 6697 if SSL
-	SSL      bool // set to true to use SSL
 	Password string
+
+	SSL       bool // set to true to use SSL
+	SSLConfig *tls.Config
 
 	Nick     string
 	User     string
@@ -89,23 +93,12 @@ func Connect(config Config) SafeConn {
 	config_ := config // copy the config for the goroutine
 	go func() {
 		config_.Init(conn)
-		var nc net.Conn
-		if config_.Timeout != 0 {
-			var err error
-			if nc, err = net.DialTimeout("tcp", addr, config_.Timeout); err != nil {
-				if config_.Error != nil {
-					config_.Error(err)
-				}
-				return
+		nc, err := dialServer(addr, config_.Timeout, config_.SSL, config_.SSLConfig)
+		if err != nil {
+			if config_.Error != nil {
+				config_.Error(err)
 			}
-		} else {
-			var err error
-			if nc, err = net.Dial("tcp", addr); err != nil {
-				if config_.Error != nil {
-					config_.Error(err)
-				}
-				return
-			}
+			return
 		}
 		conn.netconn = nc
 		// set up the writer and reader before we call any callbacks
@@ -137,6 +130,49 @@ func Connect(config Config) SafeConn {
 		conn.runLoop()
 	}()
 	return safeConn
+}
+
+func dialServer(addr string, timeout time.Duration, ssl bool, sslconfig *tls.Config) (net.Conn, error) {
+	var nc net.Conn
+	var err error
+	const network = "tcp"
+	if timeout != 0 {
+		if ssl {
+			// unfortunately tls does not provide a DialTimeout
+			// so lets try to replicate the behavior of Dial
+			if nc, err = net.DialTimeout(network, addr, timeout); err != nil {
+				return nil, err
+			}
+			var config *tls.Config
+			if sslconfig != nil {
+				config = sslconfig
+			} else {
+				config = &tls.Config{}
+			}
+			if config.ServerName == "" {
+				idx := strings.LastIndex(addr, ":")
+				if idx == -1 {
+					idx = len(addr)
+				}
+				config.ServerName = addr[:idx]
+			}
+			tc := tls.Client(nc, config)
+			if err = tc.Handshake(); err != nil {
+				nc.Close()
+				return nil, err
+			}
+			nc = tc
+		} else {
+			nc, err = net.DialTimeout(network, addr, timeout)
+		}
+	} else {
+		if ssl {
+			nc, err = tls.Dial(network, addr, sslconfig)
+		} else {
+			nc, err = net.Dial(network, addr)
+		}
+	}
+	return nc, err
 }
 
 func connWriter(nc net.Conn, c <-chan string, writeErr chan<- error, allowFlood bool) {

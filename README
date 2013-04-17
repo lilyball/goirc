@@ -40,8 +40,10 @@ TYPES
 type Config struct {
     Host     string
     Port     uint // if 0, 6667 is used, or 6697 if SSL
-    SSL      bool // set to true to use SSL
     Password string
+
+    SSL       bool // set to true to use SSL
+    SSLConfig *tls.Config
 
     Nick     string
     User     string
