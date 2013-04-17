@@ -1,0 +1,215 @@
+PACKAGE DOCUMENTATION
+
+package irc
+    import "github.com/kballard/goirc/irc"
+
+    Package irc implements the IRC protocol and provides callback support.
+
+
+CONSTANTS
+
+const (
+    // Invoked when the connection is established with the server.
+    // It is not safe to send messages to the server in response to this. No
+    // login has been performed yet.
+    // Args: (*Conn)
+    Connected = "irc:connected"
+    // Invoked when the server login has finished. It is now safe to send
+    // messages to the server.
+    // Args: (*Conn)
+    LoggedIn = "irc:loggedin"
+    // Invoked when the connection with the server is terminated.
+    // Args: (*Conn)
+    Disconnected = "irc:disconnected"
+    // Invoked for privmsgs that encode CTCP messages.
+    // Args: (*Conn, Line)
+    // The Line will have 1 or 2 args, the first is the CTCP command, the
+    // second is the remainder, if any.
+    CTCP = "irc:CTCP"
+    // Invoked for notices that encode CTCP messages.
+    // Args: (*Conn, Line)
+    // The Line will have 1 or 2 args, the first is the CTCP command, the
+    // second is the remainder, if any.
+    CTCPReply = "irc:CTCPReply"
+)
+    Special callbacks emitted by the library.
+
+
+TYPES
+
+type Config struct {
+    Host     string
+    Port     uint // if 0, 6667 is used, or 6697 if SSL
+    SSL      bool // set to true to use SSL
+    Password string
+
+    Nick     string
+    User     string
+    RealName string
+
+    Timeout time.Duration // timeout for the Connect. 0 means no timeout.
+
+    AllowFlood   bool          // set to true to disable flood protection
+    PingInterval time.Duration // defaults to 3 minutes, set to -1 to disable
+
+    // Init is called before the connection is established, in order to allow
+    // you to set up other handlers.
+    // Required.
+    // This is called on the connection's goroutine.
+    // It is an error to try to invoke any methods at this time besides the
+    // callback management ones.
+    Init func(conn *Conn)
+    // Error is called if the connection could not be established.
+    // Optional.
+    // This is called on the connection's goroutine (before the goroutine
+    // terminates).
+    Error func(err error)
+    // NickInUse is called when the chosen nickname is already in use.
+    // Optional.
+    // It's also given the 3-digit error code provided by the server,
+    // e.g. 432 indicates invalid characters in the nick, and 433 indicates
+    // the nickname was already in use.
+    // It must return a new nickname.
+    // If nil, the default behavior of appending a _ is uesd.
+    NickInUse func(oldnick string, errcode int) string
+}
+    Config represents the configuration used to set up a server connection.
+    After being passed to Connect(), the Config object can be thrown away.
+
+
+
+type Conn struct {
+    // contains filtered or unexported fields
+}
+    Conn represents a connection to a single IRC server. The only way to get
+    one of these is through a callback. If a callback wants to pass this to
+    another goroutine, it must call the SafeConn() method and use that
+    instead.
+
+
+func (c *Conn) Action(dst, msg string)
+    Send an action to the server.
+
+func (c *Conn) AddHandler(event string, f func(*Conn, Line)) callback.CallbackIdentifier
+    AddHandler adds a handler for an IRC command. The return value can be
+    passed to RemoveHandler() later.
+
+func (c *Conn) CTCP(dst, command, args string)
+    Send a CTCP message to the server.
+
+func (c *Conn) CTCPReply(dst, command, args string)
+    Send a CTCP reply to the server.
+
+func (c *Conn) Connected() bool
+    Connected returns whether the Conn is currently connected. When the Conn
+    disconnects from the server, it still processes any outstanding lines or
+    invokes.
+
+func (c *Conn) Join(channels, keys []string)
+    Send a JOIN to the server.
+
+func (c *Conn) Me() User
+    Me returns the User object that represents the client. The Nick is
+    guaranteed to be correct. The User/Host portions may not be.
+
+func (c *Conn) Nick(newnick string)
+    Send a NICK to the server.
+
+func (c *Conn) Part(channels []string, msg string)
+    send a PART to the server.
+
+func (c *Conn) Privmsg(dst, msg string)
+    Send a PRIVMSG to the server.
+
+func (c *Conn) Quit(msg string)
+    Send a QUIT to the server.
+
+func (c *Conn) Raw(msg string)
+    Send a raw line to the server.
+
+func (c *Conn) RemoveHandler(ident callback.CallbackIdentifier)
+    RemoveHandler removes a previously-added handler.
+
+func (c *Conn) SafeConn() SafeConn
+    SafeConn returns a SafeConn object that can be passed to another
+    goroutine. Note, despite the SafeConn object itself being thread-safe,
+    this method may only be called from the connection's goroutine.
+
+func (c *Conn) Server() string
+    Returns the host:port pair for the server.
+
+func (c *Conn) Shutdown()
+    Forcibly terminates the connection.
+
+
+type Line struct {
+    Sender  User
+    Command string
+    Args    []string
+    Raw     string
+    Time    time.Time
+    // contains filtered or unexported fields
+}
+
+
+func (l *Line) SenderIsMe() bool
+    SenderIsMe returns if the Sender is the same as Me.
+
+
+type SafeConn interface {
+    // Me returns the user at the time the SafeConn was created
+    Me() User
+    // Server returns the host:port pair that identifies the server
+    Server() string
+
+    // Connected returns whether the connection is still connected
+    Connected() bool
+
+    // Invoke runs the given function on the connection's goroutine
+    Invoke(func(*Conn)) bool
+
+    // AddHandler is the same as Conn.AddHandler
+    AddHandler(name string, f func(*Conn, Line)) callback.CallbackIdentifier
+
+    // RemoveHandler is the same as Conn.RemoveHandler
+    RemoveHandler(callback.CallbackIdentifier)
+
+    // Conn methods
+    Raw(line string) bool
+    Privmsg(dst, msg string) bool
+    Action(dst, msg string) bool
+    CTCP(dst, command, args string) bool
+    CTCPReply(dst, command, args string) bool
+    Quit(msg string) bool
+    Nick(newnick string) bool
+    Join(channels, keys []string) bool
+    Part(channels []string, msg string) bool
+}
+    SafeConn is a set of methods that may be called from any goroutine. They
+    mostly mirror methods from Conn directly, but with a bool return value.
+    This return value is false if the connection was already closed, or true
+    if the write succeeded (note: this does not mean the server successfully
+    received the message).
+
+
+func Connect(config Config) SafeConn
+    Connect initiates a connection to an IRC server identified by the
+    Config. It returns to the caller immediately; the Init function must be
+    used to set up any callbacks.
+
+
+
+type User struct {
+    // Nick, User, and Host will only be present if the user is of the form
+    // nick[!user]@host Notably, a server host sender will have all three fields
+    // as the empty string.
+    Nick, User, Host string
+    Raw              string
+}
+
+
+func (u User) String() string
+    Returns the user's nickname, or the raw string if there is no nickname.
+
+
+
