@@ -33,6 +33,7 @@ type Config struct {
 
 	// Init is called immediately after the connection is established but
 	// before logging in. This is the right place to set up handlers.
+	// If Init is called, Connect() will not return an error.
 	// Required.
 	Init func(HandlerRegistry)
 	// NickInUse is called when the chosen nickname is already in use.
