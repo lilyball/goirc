@@ -120,6 +120,11 @@ func (c *Conn) Action(dst, msg string) {
 	c.writer <- composeCTCP(dst, "ACTION", msg, false)
 }
 
+// Send a NOTICE to the server.
+func (c *Conn) Notice(dst, msg string) {
+	c.writer <- composeNotice(dst, msg)
+}
+
 // Send a CTCP message to the server.
 func (c *Conn) CTCP(dst, command, args string) {
 	c.writer <- composeCTCP(dst, command, args, false)

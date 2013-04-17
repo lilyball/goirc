@@ -68,6 +68,10 @@ func composePrivmsg(dst, msg string) string {
 	return filterMessage(fmt.Sprintf("PRIVMSG %s :%s", firstWord(dst), firstLine(msg)))
 }
 
+func composeNotice(dst, msg string) string {
+	return filterMessage(fmt.Sprintf("NOTICE %s :%s", firstWord(dst), firstLine(msg)))
+}
+
 func composeCTCP(dst, command, msg string, isReply bool) string {
 	prefix := "PRIVMSG"
 	if isReply {

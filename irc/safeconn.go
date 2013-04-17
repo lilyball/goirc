@@ -32,6 +32,7 @@ type SafeConn interface {
 	Raw(line string) bool
 	Privmsg(dst, msg string) bool
 	Action(dst, msg string) bool
+	Notice(dst, msg string) bool
 	CTCP(dst, command, args string) bool
 	CTCPReply(dst, command, args string) bool
 	Quit(msg string) bool
@@ -115,6 +116,12 @@ func (c *safeConn) Privmsg(dst, msg string) bool {
 func (c *safeConn) Action(dst, msg string) bool {
 	return c.exec(func() {
 		c.state.writer <- composeCTCP(dst, "ACTION", msg, false)
+	})
+}
+
+func (c *safeConn) Notice(dst, msg string) bool {
+	return c.exec(func() {
+		c.state.writer <- composeNotice(dst, msg)
 	})
 }
 

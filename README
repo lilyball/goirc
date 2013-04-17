@@ -13,24 +13,24 @@ const (
     // It is not safe to send messages to the server in response to this. No
     // login has been performed yet.
     // Args: (*Conn)
-    Connected = "irc:connected"
+    INIT = "irc:init"
     // Invoked when the server login has finished. It is now safe to send
     // messages to the server.
     // Args: (*Conn)
-    LoggedIn = "irc:loggedin"
+    CONNECTED = "irc:connected"
     // Invoked when the connection with the server is terminated.
     // Args: (*Conn)
-    Disconnected = "irc:disconnected"
+    DISCONNECTED = "irc:disconnected"
     // Invoked for privmsgs that encode CTCP messages.
     // Args: (*Conn, Line)
     // The Line will have 1 or 2 args, the first is the CTCP command, the
     // second is the remainder, if any.
-    CTCP = "irc:CTCP"
+    CTCP = "irc:ctcp"
     // Invoked for notices that encode CTCP messages.
     // Args: (*Conn, Line)
     // The Line will have 1 or 2 args, the first is the CTCP command, the
     // second is the remainder, if any.
-    CTCPReply = "irc:CTCPReply"
+    CTCPREPLY = "irc:ctcpreply"
 )
     Special callbacks emitted by the library.
 
@@ -54,18 +54,10 @@ type Config struct {
     AllowFlood   bool          // set to true to disable flood protection
     PingInterval time.Duration // defaults to 3 minutes, set to -1 to disable
 
-    // Init is called before the connection is established, in order to allow
-    // you to set up other handlers.
+    // Init is called immediately after the connection is established but
+    // before logging in. This is the right place to set up handlers.
     // Required.
-    // This is called on the connection's goroutine.
-    // It is an error to try to invoke any methods at this time besides the
-    // callback management ones.
-    Init func(conn *Conn)
-    // Error is called if the connection could not be established.
-    // Optional.
-    // This is called on the connection's goroutine (before the goroutine
-    // terminates).
-    Error func(err error)
+    Init func(HandlerRegistry)
     // NickInUse is called when the chosen nickname is already in use.
     // Optional.
     // It's also given the 3-digit error code provided by the server,
@@ -117,6 +109,9 @@ func (c *Conn) Me() User
 func (c *Conn) Nick(newnick string)
     Send a NICK to the server.
 
+func (c *Conn) Notice(dst, msg string)
+    Send a NOTICE to the server.
+
 func (c *Conn) Part(channels []string, msg string)
     send a PART to the server.
 
@@ -144,8 +139,15 @@ func (c *Conn) Shutdown()
     Forcibly terminates the connection.
 
 
+type HandlerRegistry interface {
+    AddHandler(name string, f func(*Conn, Line)) callback.CallbackIdentifier
+    RemoveHandler(callback.CallbackIdentifier)
+}
+
+
+
 type Line struct {
-    Sender  User
+    Src     User
     Command string
     Args    []string
     Raw     string
@@ -154,8 +156,8 @@ type Line struct {
 }
 
 
-func (l *Line) SenderIsMe() bool
-    SenderIsMe returns if the Sender is the same as Me.
+func (l *Line) SrcIsMe() bool
+    SrcIsMe returns if the Src is the same as Me.
 
 
 type SafeConn interface {
@@ -180,6 +182,7 @@ type SafeConn interface {
     Raw(line string) bool
     Privmsg(dst, msg string) bool
     Action(dst, msg string) bool
+    Notice(dst, msg string) bool
     CTCP(dst, command, args string) bool
     CTCPReply(dst, command, args string) bool
     Quit(msg string) bool
@@ -194,10 +197,10 @@ type SafeConn interface {
     received the message).
 
 
-func Connect(config Config) SafeConn
+func Connect(config Config) (SafeConn, error)
     Connect initiates a connection to an IRC server identified by the
-    Config. It returns to the caller immediately; the Init function must be
-    used to set up any callbacks.
+    Config. It returns once the connection has been established. If a
+    connection could not be established, an error is returned.
 
 
 
