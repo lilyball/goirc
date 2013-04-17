@@ -120,8 +120,8 @@ func Connect(config Config) SafeConn {
 			}
 			go pinger(safeConn, delta)
 		}
-		// dispatch the Connected callback
-		conn.safeConnState.registry.Dispatch(Connected, conn)
+		// dispatch the INIT callback
+		conn.safeConnState.registry.Dispatch(INIT, conn)
 		// set up our state handlers
 		conn.setupStateHandlers()
 		// fire off the login lines

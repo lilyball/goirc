@@ -14,24 +14,24 @@ const (
 	// It is not safe to send messages to the server in response to this. No
 	// login has been performed yet.
 	// Args: (*Conn)
-	Connected = "irc:connected"
+	INIT = "irc:init"
 	// Invoked when the server login has finished. It is now safe to send
 	// messages to the server.
 	// Args: (*Conn)
-	LoggedIn = "irc:loggedin"
+	CONNECTED = "irc:connected"
 	// Invoked when the connection with the server is terminated.
 	// Args: (*Conn)
-	Disconnected = "irc:disconnected"
+	DISCONNECTED = "irc:disconnected"
 	// Invoked for privmsgs that encode CTCP messages.
 	// Args: (*Conn, Line)
 	// The Line will have 1 or 2 args, the first is the CTCP command, the
 	// second is the remainder, if any.
-	CTCP = "irc:CTCP"
+	CTCP = "irc:ctcp"
 	// Invoked for notices that encode CTCP messages.
 	// Args: (*Conn, Line)
 	// The Line will have 1 or 2 args, the first is the CTCP command, the
 	// second is the remainder, if any.
-	CTCPReply = "irc:CTCPReply"
+	CTCPREPLY = "irc:ctcpreply"
 )
 
 // Conn represents a connection to a single IRC server.  The only way to get
@@ -96,7 +96,7 @@ func (c *Conn) Shutdown() {
 		c.safeConnState.invoker = nil
 		c.safeConnState.Unlock()
 
-		c.safeConnState.registry.Dispatch(Disconnected, c)
+		c.safeConnState.registry.Dispatch(DISCONNECTED, c)
 	}
 }
 
@@ -230,7 +230,7 @@ func (c *Conn) processLine(input string) {
 			case "PRIVMSG":
 				line.Command = CTCP
 			case "NOTICE":
-				line.Command = CTCPReply
+				line.Command = CTCPREPLY
 			}
 		}
 	}

@@ -26,7 +26,7 @@ func h_001(conn *Conn, line Line) {
 
 func h_004(conn *Conn, line Line) {
 	// login sequence complete
-	conn.safeConnState.registry.Dispatch(LoggedIn, conn)
+	conn.safeConnState.registry.Dispatch(CONNECTED, conn)
 }
 
 func h_MODE(conn *Conn, line Line) {

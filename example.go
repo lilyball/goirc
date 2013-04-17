@@ -16,8 +16,8 @@ func main() {
 
 		Init: func(conn *irc.Conn) {
 			fmt.Println("init")
-			conn.AddHandler(irc.LoggedIn, h_LoggedIn)
-			conn.AddHandler(irc.Disconnected, func(*irc.Conn, irc.Line) {
+			conn.AddHandler(irc.CONNECTED, h_LoggedIn)
+			conn.AddHandler(irc.DISCONNECTED, func(*irc.Conn, irc.Line) {
 				fmt.Println("disconnected")
 				quit <- true
 			})
