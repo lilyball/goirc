@@ -34,6 +34,11 @@ const (
 	CTCPREPLY = "irc:ctcpreply"
 )
 
+type HandlerRegistry interface {
+	AddHandler(name string, f func(*Conn, Line)) callback.CallbackIdentifier
+	RemoveHandler(callback.CallbackIdentifier)
+}
+
 // Conn represents a connection to a single IRC server.  The only way to get
 // one of these is through a callback.  If a callback wants to pass this to
 // another goroutine, it must call the SafeConn() method and use that instead.

@@ -3,6 +3,7 @@ package irc
 import (
 	"bufio"
 	"crypto/tls"
+	"errors"
 	"github.com/kballard/gocallback/callback"
 	"io"
 	"net"
@@ -30,18 +31,10 @@ type Config struct {
 	AllowFlood   bool          // set to true to disable flood protection
 	PingInterval time.Duration // defaults to 3 minutes, set to -1 to disable
 
-	// Init is called before the connection is established, in order to allow
-	// you to set up other handlers.
+	// Init is called immediately after the connection is established but
+	// before logging in. This is the right place to set up handlers.
 	// Required.
-	// This is called on the connection's goroutine.
-	// It is an error to try to invoke any methods at this time besides the
-	// callback management ones.
-	Init func(conn *Conn)
-	// Error is called if the connection could not be established.
-	// Optional.
-	// This is called on the connection's goroutine (before the goroutine
-	// terminates).
-	Error func(err error)
+	Init func(HandlerRegistry)
 	// NickInUse is called when the chosen nickname is already in use.
 	// Optional.
 	// It's also given the 3-digit error code provided by the server,
@@ -53,11 +46,11 @@ type Config struct {
 }
 
 // Connect initiates a connection to an IRC server identified by the Config.
-// It returns to the caller immediately; the Init function must be used to set
-// up any callbacks.
-func Connect(config Config) SafeConn {
+// It returns once the connection has been established.
+// If a connection could not be established, an error is returned.
+func Connect(config Config) (SafeConn, error) {
 	if config.Init == nil {
-		panic("Config needs an Init function")
+		return nil, errors.New("Config needs an Init function")
 	}
 
 	port := config.Port
@@ -89,47 +82,40 @@ func Connect(config Config) SafeConn {
 			registry: callback.NewRegistry(callback.DispatchSerial),
 		},
 	}
-	safeConn := conn.SafeConn()
-	config_ := config // copy the config for the goroutine
-	go func() {
-		config_.Init(conn)
-		nc, err := dialServer(addr, config_.Timeout, config_.SSL, config_.SSLConfig)
-		if err != nil {
-			if config_.Error != nil {
-				config_.Error(err)
-			}
-			return
+	nc, err := dialServer(addr, config.Timeout, config.SSL, config.SSLConfig)
+	if err != nil {
+		return nil, err
+	}
+	conn.netconn = nc
+	config.Init(conn)
+	// set up the writer and reader before we call any callbacks
+	go connWriter(nc, writer, writeErr, config.AllowFlood)
+	go connReader(nc, reader, readErr)
+	// also set up the invoker infinite queue
+	queue := make(chan func(*Conn))
+	go invokerQueue(invoker, queue)
+	// set up the safeConnState
+	conn.safeConnState.Lock()
+	conn.safeConnState.writer = conn.writer
+	conn.safeConnState.invoker = queue
+	conn.safeConnState.Unlock()
+	// set up the pinger
+	if config.PingInterval >= 0 {
+		delta := config.PingInterval
+		if delta == 0 {
+			delta = 3 * time.Minute
 		}
-		conn.netconn = nc
-		// set up the writer and reader before we call any callbacks
-		go connWriter(nc, writer, writeErr, config_.AllowFlood)
-		go connReader(nc, reader, readErr)
-		// also set up the invoker infinite queue
-		queue := make(chan func(*Conn))
-		go invokerQueue(invoker, queue)
-		// set up the safeConnState
-		conn.safeConnState.Lock()
-		conn.safeConnState.writer = conn.writer
-		conn.safeConnState.invoker = queue
-		conn.safeConnState.Unlock()
-		// set up the pinger
-		if config_.PingInterval >= 0 {
-			delta := config_.PingInterval
-			if delta == 0 {
-				delta = 3 * time.Minute
-			}
-			go pinger(safeConn, delta)
-		}
-		// dispatch the INIT callback
-		conn.safeConnState.registry.Dispatch(INIT, conn)
-		// set up our state handlers
-		conn.setupStateHandlers()
-		// fire off the login lines
-		conn.logIn(config_.RealName, config_.Password)
-		// and start the main loop
-		conn.runLoop()
-	}()
-	return safeConn
+		go pinger(conn.SafeConn(), delta)
+	}
+	// dispatch the INIT callback
+	conn.safeConnState.registry.Dispatch(INIT, conn)
+	// set up our state handlers
+	conn.setupStateHandlers()
+	// fire off the login lines
+	conn.logIn(config.RealName, config.Password)
+	// and finally, start the main loop in a new goroutine
+	go conn.runLoop()
+	return conn.SafeConn(), nil
 }
 
 func dialServer(addr string, timeout time.Duration, ssl bool, sslconfig *tls.Config) (net.Conn, error) {

@@ -14,23 +14,22 @@ func main() {
 		User:     "goirc",
 		RealName: "goirc",
 
-		Init: func(conn *irc.Conn) {
+		Init: func(hr irc.HandlerRegistry) {
 			fmt.Println("init")
-			conn.AddHandler(irc.CONNECTED, h_LoggedIn)
-			conn.AddHandler(irc.DISCONNECTED, func(*irc.Conn, irc.Line) {
+			hr.AddHandler(irc.CONNECTED, h_LoggedIn)
+			hr.AddHandler(irc.DISCONNECTED, func(*irc.Conn, irc.Line) {
 				fmt.Println("disconnected")
 				quit <- true
 			})
-			conn.AddHandler("PRIVMSG", h_PRIVMSG)
-		},
-		Error: func(err error) {
-			fmt.Println("error:", err)
-			quit <- true
+			hr.AddHandler("PRIVMSG", h_PRIVMSG)
 		},
 	}
 
 	fmt.Println("Connecting")
-	irc.Connect(config)
+	if _, err := irc.Connect(config); err != nil {
+		fmt.Println("error:", err)
+		quit <- true
+	}
 
 	<-quit
 	fmt.Println("Goodbye")
