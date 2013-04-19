@@ -1,8 +1,14 @@
 package irc
 
+import (
+	"fmt"
+)
+
 func (c *Conn) setupStateHandlers() {
 	c.stateRegistry.AddCallback("001", h_001)
 	c.stateRegistry.AddCallback("004", h_004)
+
+	c.stateRegistry.AddCallback("PING", h_PING)
 
 	c.stateRegistry.AddCallback("MODE", h_MODE)
 	c.stateRegistry.AddCallback("NICK", h_NICK)
@@ -27,6 +33,12 @@ func h_001(conn *Conn, line Line) {
 func h_004(conn *Conn, line Line) {
 	// login sequence complete
 	conn.safeConnState.registry.Dispatch(CONNECTED, conn)
+}
+
+func h_PING(conn *Conn, line Line) {
+	if len(line.Args) > 0 {
+		conn.Raw(fmt.Sprintf("PONG :%s", line.Args[0]))
+	}
 }
 
 func h_MODE(conn *Conn, line Line) {
