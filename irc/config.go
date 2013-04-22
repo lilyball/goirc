@@ -227,17 +227,6 @@ func connWriter(nc net.Conn, c <-chan string, writeErr chan<- error, allowFlood 
 	}
 }
 
-type readerNoZero struct {
-	r io.Reader
-}
-
-func (r readerNoZero) Read(buf []byte) (n int, err error) {
-	for n == 0 && err == nil {
-		n, err = r.r.Read(buf)
-	}
-	return
-}
-
 func connReader(nc net.Conn, c chan<- string, readErr chan<- error) {
 	// set up the infinite queue
 	queue := make(chan string)
@@ -273,7 +262,7 @@ func connReader(nc net.Conn, c chan<- string, readErr chan<- error) {
 		close(c)
 	}()
 	// read from the wire and write to the queue
-	scanner := bufio.NewScanner(readerNoZero{nc}) // defaults to SplitLines
+	scanner := bufio.NewScanner(nc) // defaults to SplitLines
 	for scanner.Scan() {
 		queue <- scanner.Text()
 	}
