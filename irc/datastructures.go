@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -33,6 +34,17 @@ func (u User) String() string {
 		return u.Nick
 	}
 	return u.Raw
+}
+
+// Returns the user@host string, or just host if no user, or "" if this isn't a
+// user.
+func (u User) Ident() string {
+	if u.Host != "" && u.User != "" {
+		return fmt.Sprintf("%s@%s", u.User, u.Host)
+	} else if u.Host != "" {
+		return u.Host
+	}
+	return ""
 }
 
 type Line struct {

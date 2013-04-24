@@ -21,15 +21,22 @@ const (
     // Invoked when the connection with the server is terminated.
     // Args: (*Conn)
     DISCONNECTED = "irc:disconnected"
+    // Invoked for privmsgs that encode CTCP ACTIONs.
+    // Args: (*Conn, Line)
+    // The Line will have 1 arg, which is the action text.
+    // Line.Dst will contain the original target of the PRIVMSG.
+    ACTION = "irc:action"
     // Invoked for privmsgs that encode CTCP messages.
     // Args: (*Conn, Line)
     // The Line will have 1 or 2 args, the first is the CTCP command, the
     // second is the remainder, if any.
+    // Line.Dst will contain the original target of the PRIVMSG.
     CTCP = "irc:ctcp"
     // Invoked for notices that encode CTCP messages.
     // Args: (*Conn, Line)
     // The Line will have 1 or 2 args, the first is the CTCP command, the
     // second is the remainder, if any.
+    // Line.Dst will contain the original target of the NOTICE.
     CTCPREPLY = "irc:ctcpreply"
 )
     Special callbacks emitted by the library.
@@ -160,6 +167,10 @@ type Line struct {
     Args    []string
     Raw     string
     Time    time.Time
+
+    // Dst is only filled in for the special commands such as ACTION, CTCP, and
+    // CTCPReply. It denotes the target the PRIVMSG/NOTICE was sent to.
+    Dst string
     // contains filtered or unexported fields
 }
 
@@ -220,6 +231,10 @@ type User struct {
     Raw              string
 }
 
+
+func (u User) Ident() string
+    Returns the user@host string, or just host if no user, or "" if this
+    isn't a user.
 
 func (u User) String() string
     Returns the user's nickname, or the raw string if there is no nickname.
