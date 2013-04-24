@@ -2,6 +2,7 @@ package irc
 
 import (
 	"fmt"
+	"time"
 )
 
 func (c *Conn) setupStateHandlers() {
@@ -98,4 +99,26 @@ func h_badNick(conn *Conn, line Line, errCode int) {
 		return
 	}
 	conn.Nick(newNick)
+}
+
+func defaultCTCPHandler(conn *Conn, line Line) {
+	if line.Command != CTCP {
+		return
+	}
+	if line.Src.Nick == "" {
+		// did we get a CTCP from the server?
+		return
+	}
+	switch line.Args[0] {
+	case "PING":
+		var param string
+		if len(line.Args) > 1 {
+			param = line.Args[1]
+		}
+		conn.CTCPReply(line.Src.Nick, "PING", param)
+	case "TIME":
+		conn.CTCPReply(line.Src.Nick, "TIME", time.Now().Format(time.UnixDate))
+	case "VERSION":
+		conn.CTCPReply(line.Src.Nick, "VERSION", "go library kballard/goirc")
+	}
 }

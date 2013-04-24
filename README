@@ -56,6 +56,7 @@ type Config struct {
 
     // Init is called immediately after the connection is established but
     // before logging in. This is the right place to set up handlers.
+    // If Init is called, Connect() will not return an error.
     // Required.
     Init func(HandlerRegistry)
     // NickInUse is called when the chosen nickname is already in use.
@@ -98,6 +99,13 @@ func (c *Conn) Connected() bool
     Connected returns whether the Conn is currently connected. When the Conn
     disconnects from the server, it still processes any outstanding lines or
     invokes.
+
+func (c *Conn) DefaultCTCPHandler(line Line)
+    DefaultCTCPHandler processes an incoming CTCP message with some default
+    behavior. For example, it will respond to PING, TIME, and VERSION
+    requests. This function is called by default if no handler is registered
+    for CTCP. If one is registered for CTCP, you may call this function
+    yourself in order to invoke default behavior.
 
 func (c *Conn) Join(channels, keys []string)
     Send a JOIN to the server.
@@ -215,6 +223,3 @@ type User struct {
 
 func (u User) String() string
     Returns the user's nickname, or the raw string if there is no nickname.
-
-
-

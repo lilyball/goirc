@@ -159,6 +159,15 @@ func (c *Conn) Nick(newnick string) {
 	c.writer <- composeNick(newnick)
 }
 
+// DefaultCTCPHandler processes an incoming CTCP message with some default
+// behavior.  For example, it will respond to PING, TIME, and VERSION requests.
+// This function is called by default if no handler is registered for CTCP. If
+// one is registered for CTCP, you may call this function yourself in order to
+// invoke default behavior.
+func (c *Conn) DefaultCTCPHandler(line Line) {
+	defaultCTCPHandler(c, line)
+}
+
 var lastNick string
 
 func (c *Conn) badNick(oldnick string, errCode int) string {
@@ -245,6 +254,9 @@ func (c *Conn) processLine(input string) {
 		}
 	}
 
+	// CTCP gets some special handling
 	c.stateRegistry.Dispatch(line.Command, c, line)
-	c.safeConnState.registry.Dispatch(line.Command, c, line)
+	if !c.safeConnState.registry.Dispatch(line.Command, c, line) && line.Command == CTCP {
+		c.DefaultCTCPHandler(line)
+	}
 }
