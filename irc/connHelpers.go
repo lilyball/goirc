@@ -7,25 +7,28 @@ import (
 )
 
 // filters out any chars that can't be sent to IRC.
-// This includes NUL, \001, CR, and LF.
+// This includes NUL, CR, and LF.
 // This also truncates the message to 510 bytes total.
 // Note: this function assumes utf8 text, and will trim to lower than 510 if it
 // thinks it broke a utf8 rune in half.
 func filterMessage(text string) string {
 	// byte-wise iteration
 	var bytes []byte
-	for i, j := 0, 0; i < len(text); i++ {
+	var i, j int
+	for i, j = 0, 0; i < len(text); i++ {
 		c := text[i]
-		if c == 0 || c == '\001' || c == '\r' || c == '\n' {
+		if c == 0 || c == '\r' || c == '\n' {
 			if bytes == nil {
 				bytes = make([]byte, 0, len(text))
 			}
-			n := copy(bytes[len(bytes):], text[j:i])
+			n := copy(bytes[len(bytes):cap(bytes)], text[j:i])
 			bytes = bytes[:len(bytes)+n]
 			j = i + 1
 		}
 	}
 	if bytes != nil {
+		n := copy(bytes[len(bytes):cap(bytes)], text[j:])
+		bytes = bytes[:len(bytes)+n]
 		text = string(bytes)
 	}
 	if len(text) > 510 {
