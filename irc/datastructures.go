@@ -42,6 +42,10 @@ type Line struct {
 	Raw     string
 	Time    time.Time
 
+	// Dst is only filled in for the special commands such as ACTION, CTCP, and
+	// CTCPReply. It denotes the target the PRIVMSG/NOTICE was sent to.
+	Dst string
+
 	me User
 }
 

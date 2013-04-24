@@ -22,15 +22,22 @@ const (
 	// Invoked when the connection with the server is terminated.
 	// Args: (*Conn)
 	DISCONNECTED = "irc:disconnected"
+	// Invoked for privmsgs that encode CTCP ACTIONs.
+	// Args: (*Conn, Line)
+	// The Line will have 1 arg, which is the action text.
+	// Line.Dst will contain the original target of the PRIVMSG.
+	ACTION = "irc:action"
 	// Invoked for privmsgs that encode CTCP messages.
 	// Args: (*Conn, Line)
 	// The Line will have 1 or 2 args, the first is the CTCP command, the
 	// second is the remainder, if any.
+	// Line.Dst will contain the original target of the PRIVMSG.
 	CTCP = "irc:ctcp"
 	// Invoked for notices that encode CTCP messages.
 	// Args: (*Conn, Line)
 	// The Line will have 1 or 2 args, the first is the CTCP command, the
 	// second is the remainder, if any.
+	// Line.Dst will contain the original target of the NOTICE.
 	CTCPREPLY = "irc:ctcpreply"
 )
 
@@ -238,16 +245,26 @@ func (c *Conn) processLine(input string) {
 
 	// detect CTCP and modify the line accordingly
 	if line.Command == "PRIVMSG" || line.Command == "NOTICE" {
-		if len(line.Args) > 0 && strings.HasPrefix(line.Args[len(line.Args)-1], "\001") {
+		if len(line.Args) > 1 && strings.HasPrefix(line.Args[len(line.Args)-1], "\001") {
 			// This is a CTCP command or reply
 			text := line.Args[len(line.Args)-1][1:]
 			if strings.HasSuffix(text, "\001") {
 				text = text[:len(text)-1]
 			}
+			line.Dst = line.Args[0]
 			line.Args = strings.SplitN(text, " ", 2)
 			switch line.Command {
 			case "PRIVMSG":
-				line.Command = CTCP
+				if line.Args[0] == "ACTION" {
+					line.Command = ACTION
+					if len(line.Args) > 1 {
+						line.Args = line.Args[1:2]
+					} else {
+						line.Args = []string{""}
+					}
+				} else {
+					line.Command = CTCP
+				}
 			case "NOTICE":
 				line.Command = CTCPREPLY
 			}

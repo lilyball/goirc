@@ -22,6 +22,7 @@ func main() {
 				quit <- true
 			})
 			hr.AddHandler("PRIVMSG", h_PRIVMSG)
+			hr.AddHandler(irc.ACTION, h_ACTION)
 		},
 	}
 
@@ -45,4 +46,8 @@ func h_PRIVMSG(conn *irc.Conn, line irc.Line) {
 	if line.Args[1] == "!quit" {
 		conn.Quit("")
 	}
+}
+
+func h_ACTION(conn *irc.Conn, line irc.Line) {
+	fmt.Printf("[%s] %s %s\n", line.Dst, line.Src, line.Args[0])
 }
